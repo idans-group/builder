@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-heading: 'Outfit', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #0a0a0a;
+    color: #f5f5f5;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0d0d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #262626;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #404040;
+}
+
+/* Monochromatic Glassmorphism Borders & Accents */
+.glass-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-bg {
+  background: rgba(18, 18, 18, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-panel {
+  background: rgba(13, 13, 13, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Premium Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulseBorder {
+  0%, 100% { border-color: rgba(255, 255, 255, 0.06); }
+  50% { border-color: rgba(255, 255, 255, 0.15); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pulse-border-hover:hover {
+  animation: pulseBorder 2s infinite ease-in-out;
+}
+
+/* Custom transitions */
+.transition-premium {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Loading animations */
+.loading-dots span {
+  animation: loadingDots 1.4s infinite both;
+}
+.loading-dots span:nth-child(2) { animation-delay: .2s; }
+.loading-dots span:nth-child(3) { animation-delay: .4s; }
+
+@keyframes loadingDots {
+  0% { opacity: .2; transform: translateY(0px); }
+  20% { opacity: 1; transform: translateY(-2px); }
+  100% { opacity: .2; transform: translateY(0px); }
+}
+
+/* Prism-like selection code styling */
+pre, code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+}
