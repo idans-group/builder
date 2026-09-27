@@ -18,8 +18,15 @@ export interface PRD {
 }
 
 export interface JSONSpec {
-  // A json-render spec root
-  components: JSONComponent[];
+  root?: string;
+  elements?: Record<string, {
+    type: string;
+    props?: Record<string, any>;
+    children?: string[];
+    visible?: any;
+  }>;
+  components?: JSONComponent[];
+  state?: Record<string, any>;
 }
 
 export interface JSONComponent {
