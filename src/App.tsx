@@ -3,7 +3,7 @@ import { Message, PRD, JSONSpec, AIConfig } from "./types";
 import { ChatSection } from "./components/ChatSection";
 import { CanvasSection } from "./components/CanvasSection";
 import { SettingsModal } from "./components/SettingsModal";
-import { simulatePMResponse, generateSimulatedSpec, generateLivePMResponse, generateLiveUISpec } from "./services/ai";
+import { simulatePMResponse, generateSimulatedSpec, generateLivePMResponse, generateLiveUISpec, normalizePRD } from "./services/ai";
 import { catalog } from "./components/json-render/Catalog";
 
 const LOCAL_STORAGE_KEY = "builder_ai_config";
@@ -61,7 +61,7 @@ function App() {
     const savedPRD = localStorage.getItem(STORAGE_PRD_KEY);
     if (savedPRD) {
       try {
-        setPrd(JSON.parse(savedPRD));
+        setPrd(normalizePRD(JSON.parse(savedPRD)));
       } catch (e) {
         console.error("Error parsing active PRD:", e);
       }
@@ -162,7 +162,7 @@ function App() {
       };
 
       setMessages([...targetMessages, assistantMessage]);
-      setPrd(updatedPrd);
+      setPrd(normalizePRD(updatedPrd, prd));
 
       // Auto toggle to PRD tab on first message
       if (originalMessagesForRollback.length === 0) {

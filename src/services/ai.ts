@@ -8,14 +8,195 @@ Keep your responses structured, clear, and highly professional. Ask one targeted
 2. Critical user flows and actions.
 3. Edge cases, validation limits, and failure modes.
 
-Structure of the PRD you are building:
-- Title
-- Overview
-- Target Audience & Personas
-- Primary User Flows
-- Functional Requirements (including form inputs & actions)
-- Non-Functional Requirements & Security
-- Edge Cases & Guardrails`;
+Structure of the PRD you are building (and the exact JSON keys to populate):
+- Title ("title": string)
+- Overview ("overview": string)
+- Target Audience & Personas ("targetAudience": string[])
+- Primary User Flows ("userFlows": string[])
+- Functional Requirements & Controls ("functionalRequirements": string[])
+- Non-Functional Requirements & Criteria ("nonFunctionalRequirements": string[])
+- Edge Cases & Guardrails ("edgeCases": string[])
+
+CRITICAL SCHEMA RULE:
+All PRD section list fields (targetAudience, userFlows, functionalRequirements, nonFunctionalRequirements, edgeCases) MUST be flat JSON arrays of descriptive strings. Do not use alternate key names or nested objects.`;
+
+// Helper to convert any loose data format into a clean string array
+function extractStringList(val: any): string[] {
+  if (val === null || val === undefined) return [];
+
+  if (Array.isArray(val)) {
+    return val
+      .map((item) => {
+        if (item === null || item === undefined) return "";
+        if (typeof item === "string") return item.trim();
+        if (typeof item === "object") {
+          const title = item.title || item.name || item.flow || item.requirement || item.rule || item.label || item.key || "";
+          const desc = item.description || item.detail || item.desc || item.text || item.value || "";
+          if (title && desc) return `${title}: ${desc}`;
+          if (title) return String(title);
+          if (desc) return String(desc);
+          return JSON.stringify(item);
+        }
+        return String(item).trim();
+      })
+      .filter((s) => s.length > 0);
+  }
+
+  if (typeof val === "object") {
+    return Object.entries(val)
+      .map(([key, value]) => {
+        if (value === null || value === undefined) return "";
+        if (typeof value === "object") {
+          return `${key}: ${JSON.stringify(value)}`;
+        }
+        return `${key}: ${value}`;
+      })
+      .filter((s) => s.length > 0);
+  }
+
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return [];
+    if (trimmed.includes("\n")) {
+      return trimmed
+        .split("\n")
+        .map((line) => line.replace(/^[\s*\-•\d.]+\s*/, "").trim())
+        .filter((s) => s.length > 0);
+    }
+    return [trimmed];
+  }
+
+  return [];
+}
+
+// Resilient normalizer that maps loose LLM responses, alternative key names, and dictionaries into a canonical PRD
+export function normalizePRD(raw: any, existingPrd?: PRD | null): PRD {
+  if (!raw || typeof raw !== "object") {
+    return existingPrd || {
+      title: "Untitled Application",
+      overview: "",
+      targetAudience: [],
+      userFlows: [],
+      functionalRequirements: [],
+      nonFunctionalRequirements: [],
+      edgeCases: [],
+      finalized: false
+    };
+  }
+
+  // Normalized key finder that tolerates casing, spaces, underscores, and hyphens
+  const getField = (aliases: string[]): any => {
+    // 1. Direct match check
+    for (const alias of aliases) {
+      if (raw[alias] !== undefined && raw[alias] !== null) {
+        return raw[alias];
+      }
+    }
+
+    // 2. Loose normalized match check
+    const normalizedRawEntries = Object.entries(raw).map(([k, v]) => ({
+      normKey: k.toLowerCase().replace(/[^a-z0-9]/g, ""),
+      val: v
+    }));
+
+    for (const alias of aliases) {
+      const normAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const found = normalizedRawEntries.find((entry) => entry.normKey === normAlias);
+      if (found && found.val !== undefined && found.val !== null) {
+        return found.val;
+      }
+    }
+
+    return undefined;
+  };
+
+  const rawTitle = getField(["title", "Title", "projectName", "Project Name", "name", "appTitle"]);
+  const rawOverview = getField(["overview", "projectOverview", "Project Overview", "Overview", "description", "summary"]);
+  const rawTargetAudience = getField([
+    "targetAudience",
+    "targetAudienceAndPersonas",
+    "target_audience",
+    "Target Audience & Personas",
+    "Target Audience",
+    "personas",
+    "audience"
+  ]);
+  const rawUserFlows = getField([
+    "userFlows",
+    "primaryUserFlows",
+    "user_flows",
+    "primary_user_flows",
+    "Primary User Flows",
+    "User Flows",
+    "flows",
+    "userJourneys"
+  ]);
+  const rawFunctional = getField([
+    "functionalRequirements",
+    "functionalComponents",
+    "functionalComponentsAndControls",
+    "functional_requirements",
+    "Functional Requirements",
+    "Functional Components & Controls",
+    "Functional Components",
+    "features",
+    "components",
+    "controls"
+  ]);
+  const rawNonFunctional = getField([
+    "nonFunctionalRequirements",
+    "nonFunctionalRequirementsAndSecurity",
+    "non_functional_requirements",
+    "Non-Functional Requirements & Security",
+    "Non-Functional Requirements",
+    "Non-Functional Criteria",
+    "nonFunctionalCriteria",
+    "nfr",
+    "security"
+  ]);
+  const rawEdgeCases = getField([
+    "edgeCases",
+    "edgeCasesAndGuardrails",
+    "edgeCasesAndValidationLimits",
+    "edge_cases",
+    "Edge Cases & Guardrails",
+    "Edge Cases & Validation Limits",
+    "Edge Cases",
+    "guardrails",
+    "validationLimits"
+  ]);
+  const rawFinalized = getField(["finalized", "isFinalized", "complete", "isComplete"]);
+
+  const parsedAudience = extractStringList(rawTargetAudience);
+  const parsedFlows = extractStringList(rawUserFlows);
+  const parsedFunctional = extractStringList(rawFunctional);
+  const parsedNonFunctional = extractStringList(rawNonFunctional);
+  const parsedEdgeCases = extractStringList(rawEdgeCases);
+
+  const title = (typeof rawTitle === "string" && rawTitle.trim()) || existingPrd?.title || "Untitled Application";
+  const overview = (typeof rawOverview === "string" && rawOverview.trim()) || existingPrd?.overview || "";
+
+  // Merge with existing PRD so incremental questions don't wipe populated sections
+  const targetAudience = parsedAudience.length > 0 ? parsedAudience : (existingPrd?.targetAudience || []);
+  const userFlows = parsedFlows.length > 0 ? parsedFlows : (existingPrd?.userFlows || []);
+  const functionalRequirements = parsedFunctional.length > 0 ? parsedFunctional : (existingPrd?.functionalRequirements || []);
+  const nonFunctionalRequirements = parsedNonFunctional.length > 0 ? parsedNonFunctional : (existingPrd?.nonFunctionalRequirements || []);
+  const edgeCases = parsedEdgeCases.length > 0 ? parsedEdgeCases : (existingPrd?.edgeCases || []);
+
+  const finalized = rawFinalized !== undefined ? Boolean(rawFinalized) : (existingPrd?.finalized || false);
+
+  return {
+    title,
+    overview,
+    targetAudience,
+    userFlows,
+    functionalRequirements,
+    nonFunctionalRequirements,
+    edgeCases,
+    finalized
+  };
+}
+
 
 // High-fidelity in-browser simulation database for zero-config out-of-the-box experience
 const APP_SCENARIOS = {
@@ -621,11 +802,27 @@ export async function generateLivePMResponse(
 CURRENT PRD DATA:
 ${prd ? JSON.stringify(prd, null, 2) : "None (Initializing)"}
 
-Your output MUST be a JSON object with two fields:
-1. "reply": Your conversational markdown reply asking the next targeted question.
-2. "prd": An updated, rich PRD object containing fields (title, overview, targetAudience, userFlows, functionalRequirements, nonFunctionalRequirements, edgeCases, finalized). Ensure finalized is true only when the requirements are complete.
+OUTPUT FORMAT REQUIREMENT:
+You MUST respond with a valid JSON object matching this exact schema:
+{
+  "reply": "Your conversational markdown reply asking the next targeted question or summarizing progress.",
+  "prd": {
+    "title": "Application Title",
+    "overview": "High-level summary of the app",
+    "targetAudience": ["Persona 1: Description", "Persona 2: Description"],
+    "userFlows": ["Flow 1: Description", "Flow 2: Description"],
+    "functionalRequirements": ["Component/Control 1: Description", "Component/Control 2: Description"],
+    "nonFunctionalRequirements": ["Criteria 1: Description", "Criteria 2: Description"],
+    "edgeCases": ["Edge Case 1: Description", "Edge Case 2: Description"],
+    "finalized": false
+  }
+}
 
-Ensure you respond in valid JSON format.`;
+CRITICAL RULES:
+1. Every section list (targetAudience, userFlows, functionalRequirements, nonFunctionalRequirements, edgeCases) MUST be a flat JSON array of strings.
+2. Use the exact property names shown above. Do NOT use spaces or title case for keys.
+3. Ensure "finalized" is boolean true only when all requirements are fully articulated.
+4. Respond ONLY with the JSON object. Do not wrap in markdown or include extra commentary.`;
 
     if (config.provider === "gemini") {
       const response = await fetch(
@@ -655,7 +852,9 @@ Ensure you respond in valid JSON format.`;
       const data = await response.json();
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       const parsed = safeParseJSON(rawText);
-      return { content: parsed.reply, prd: parsed.prd };
+      const replyContent = parsed?.reply || parsed?.content || "PRD updated.";
+      const cleanPrd = normalizePRD(parsed?.prd || parsed, prd);
+      return { content: replyContent, prd: cleanPrd };
     } else {
       // OpenAI Provider
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -687,7 +886,9 @@ Ensure you respond in valid JSON format.`;
       const data = await response.json();
       const rawText = data.choices?.[0]?.message?.content;
       const parsed = safeParseJSON(rawText);
-      return { content: parsed.reply, prd: parsed.prd };
+      const replyContent = parsed?.reply || parsed?.content || "PRD updated.";
+      const cleanPrd = normalizePRD(parsed?.prd || parsed, prd);
+      return { content: replyContent, prd: cleanPrd };
     }
   } catch (error: any) {
     console.error("Live API Error:", error);

@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { defineRegistry, JSONUIProvider, Renderer as CoreRenderer } from "@json-render/react";
 import { shadcnComponents } from "@json-render/shadcn";
+import { nestedToFlat } from "@json-render/core";
 import { catalog } from "./Catalog";
 
 // React Error Boundary to catch and display rendering or schema validation exceptions gracefully
@@ -139,11 +140,25 @@ export const LiveUIRenderer: React.FC<LiveUIRendererProps> = ({
 }) => {
   // Resiliently resolve the spec, reconstructing it if it is a JSON Patch operations list
   const resolvedSpec = React.useMemo(() => {
+    let resolved = spec;
     if (Array.isArray(spec)) {
       console.log("Renderer - Reconstructing tree from JSON patch operations...");
-      return reconstructSpecFromPatches(spec);
+      resolved = reconstructSpecFromPatches(spec);
     }
-    return spec;
+
+    if (resolved && resolved.components && Array.isArray(resolved.components) && resolved.components[0]) {
+      try {
+        console.log("Renderer - Converting nested spec to flat spec...");
+        const flat = nestedToFlat(resolved.components[0]);
+        if (resolved.state) {
+          flat.state = { ...flat.state, ...resolved.state };
+        }
+        return flat;
+      } catch (e) {
+        console.error("Renderer - Failed to convert nested spec to flat:", e);
+      }
+    }
+    return resolved;
   }, [spec]);
 
   return (

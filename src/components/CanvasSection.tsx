@@ -33,8 +33,8 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
   const renderListItem = (item: any) => {
     if (item === null || item === undefined) return "";
     if (typeof item === "object") {
-      const title = item.name || item.title || item.label || "";
-      const desc = item.description || item.text || item.value || "";
+      const title = item.name || item.title || item.label || item.flow || item.requirement || "";
+      const desc = item.description || item.text || item.value || item.detail || "";
       if (title || desc) {
         return (
           <span>
@@ -46,6 +46,38 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
       return JSON.stringify(item);
     }
     return String(item);
+  };
+
+  // Extract list items with fallback aliases and support for objects/strings
+  const getListItems = (data: any, aliases?: string[]): any[] => {
+    let target = data;
+    if ((!target || (Array.isArray(target) && target.length === 0)) && aliases && prd) {
+      for (const alias of aliases) {
+        if ((prd as any)[alias] !== undefined && (prd as any)[alias] !== null) {
+          target = (prd as any)[alias];
+          break;
+        }
+      }
+    }
+    if (!target) return [];
+    if (Array.isArray(target)) return target;
+    if (typeof target === "object") {
+      return Object.entries(target).map(([k, v]) => {
+        if (typeof v === "object" && v !== null) {
+          return `${k}: ${JSON.stringify(v)}`;
+        }
+        return `${k}: ${v}`;
+      });
+    }
+    if (typeof target === "string") {
+      const trimmed = target.trim();
+      if (!trimmed) return [];
+      if (trimmed.includes("\n")) {
+        return trimmed.split("\n").map(l => l.replace(/^[\s*\-•\d.]+\s*/, "").trim()).filter(Boolean);
+      }
+      return [trimmed];
+    }
+    return [];
   };
 
   return (
@@ -92,7 +124,7 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
           <button
             onClick={onCompileSpec}
             disabled={isCompiling}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold bg-neutral-200 text-neutral-950 rounded-lg hover:bg-neutral-100 disabled:opacity-50 active:scale-[0.98] transition-premium shadow-lg shadow-black/40"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold bg-neutral-200 text-neutral-950 rounded-lg hover:bg-neutral-100 disabled:opacity-50 active:scale-[0.98] transition-premium shadow-lg shadow-black/40 cursor-pointer"
           >
             {isCompiling ? (
               <>
@@ -140,101 +172,127 @@ export const CanvasSection: React.FC<CanvasSectionProps> = ({
                 {/* Scope Overview */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-heading">1. Project Overview</h3>
-                  <p className="text-sm leading-relaxed text-neutral-300 font-normal">{prd.overview}</p>
+                  <p className="text-sm leading-relaxed text-neutral-300 font-normal">
+                    {prd.overview || (
+                      <span className="text-neutral-500 italic">Drafting in progress...</span>
+                    )}
+                  </p>
                 </div>
 
                 {/* Target Audience */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-heading">2. Target Audience &amp; Personas</h3>
-                  <ul className="list-disc pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
-                    {(() => {
-                      const list = Array.isArray(prd.targetAudience) 
-                        ? prd.targetAudience 
-                        : typeof prd.targetAudience === "string" 
-                          ? [prd.targetAudience] 
-                          : [];
-                      return list.map((audience, idx) => (
-                        <li key={idx}>{renderListItem(audience)}</li>
-                      ));
-                    })()}
-                  </ul>
+                  {(() => {
+                    const list = getListItems(prd.targetAudience, ["targetAudienceAndPersonas", "Target Audience & Personas", "Target Audience", "personas"]);
+                    if (list.length === 0) {
+                      return <p className="text-xs text-neutral-500 italic pl-1">Drafting in progress with AI Product Manager...</p>;
+                    }
+                    return (
+                      <ul className="list-disc pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
+                        {list.map((audience, idx) => (
+                          <li key={idx}>{renderListItem(audience)}</li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
                 </div>
 
                 {/* User Flows */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-heading">3. Primary User Flows</h3>
-                  <ol className="list-decimal pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
-                    {(() => {
-                      const list = Array.isArray(prd.userFlows) 
-                        ? prd.userFlows 
-                        : typeof prd.userFlows === "string" 
-                          ? [prd.userFlows] 
-                          : [];
-                      return list.map((flow, idx) => (
-                        <li key={idx}>{renderListItem(flow)}</li>
-                      ));
-                    })()}
-                  </ol>
+                  {(() => {
+                    const list = getListItems(prd.userFlows, ["primaryUserFlows", "Primary User Flows", "User Flows", "user_flows", "flows"]);
+                    if (list.length === 0) {
+                      return <p className="text-xs text-neutral-500 italic pl-1">Drafting in progress with AI Product Manager...</p>;
+                    }
+                    return (
+                      <ol className="list-decimal pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
+                        {list.map((flow, idx) => (
+                          <li key={idx}>{renderListItem(flow)}</li>
+                        ))}
+                      </ol>
+                    );
+                  })()}
                 </div>
 
                 {/* Functional Requirements */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-heading">4. Functional Components &amp; Controls</h3>
-                  <ul className="list-disc pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
-                    {(() => {
-                      const list = Array.isArray(prd.functionalRequirements) 
-                        ? prd.functionalRequirements 
-                        : typeof prd.functionalRequirements === "string" 
-                          ? [prd.functionalRequirements] 
-                          : [];
-                      return list.map((req, idx) => (
-                        <li key={idx}>{renderListItem(req)}</li>
-                      ));
-                    })()}
-                  </ul>
+                  {(() => {
+                    const list = getListItems(prd.functionalRequirements, [
+                      "functionalComponents",
+                      "functionalComponentsAndControls",
+                      "Functional Requirements",
+                      "Functional Components & Controls",
+                      "functional_requirements",
+                      "features"
+                    ]);
+                    if (list.length === 0) {
+                      return <p className="text-xs text-neutral-500 italic pl-1">Drafting in progress with AI Product Manager...</p>;
+                    }
+                    return (
+                      <ul className="list-disc pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
+                        {list.map((req, idx) => (
+                          <li key={idx}>{renderListItem(req)}</li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
                 </div>
 
                 {/* Non-Functional */}
-                {prd.nonFunctionalRequirements && (
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-heading">5. Non-Functional Criteria</h3>
-                    <ul className="list-disc pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
-                      {(() => {
-                        const list = Array.isArray(prd.nonFunctionalRequirements) 
-                          ? prd.nonFunctionalRequirements 
-                          : typeof prd.nonFunctionalRequirements === "string" 
-                            ? [prd.nonFunctionalRequirements] 
-                            : [];
-                        return list.map((nfr, idx) => (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-heading">5. Non-Functional Criteria</h3>
+                  {(() => {
+                    const list = getListItems(prd.nonFunctionalRequirements, [
+                      "nonFunctionalRequirementsAndSecurity",
+                      "Non-Functional Requirements & Security",
+                      "Non-Functional Requirements",
+                      "Non-Functional Criteria",
+                      "nonFunctionalCriteria",
+                      "non_functional_requirements",
+                      "security"
+                    ]);
+                    if (list.length === 0) {
+                      return <p className="text-xs text-neutral-500 italic pl-1">Drafting in progress with AI Product Manager...</p>;
+                    }
+                    return (
+                      <ul className="list-disc pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
+                        {list.map((nfr, idx) => (
                           <li key={idx}>{renderListItem(nfr)}</li>
-                        ));
-                      })()}
-                    </ul>
-                  </div>
-                )}
+                        ))}
+                      </ul>
+                    );
+                  })()}
+                </div>
 
                 {/* Edge Cases */}
-                {prd.edgeCases && (
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-heading">6. Edge Cases &amp; Validation Limits</h3>
-                    <ul className="list-disc pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
-                      {(() => {
-                        const list = Array.isArray(prd.edgeCases) 
-                          ? prd.edgeCases 
-                          : typeof prd.edgeCases === "string" 
-                            ? [prd.edgeCases] 
-                            : [];
-                        return list.map((edge, idx) => (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 font-heading">6. Edge Cases &amp; Validation Limits</h3>
+                  {(() => {
+                    const list = getListItems(prd.edgeCases, [
+                      "edgeCasesAndGuardrails",
+                      "edgeCasesAndValidationLimits",
+                      "Edge Cases & Guardrails",
+                      "Edge Cases & Validation Limits",
+                      "Edge Cases",
+                      "edge_cases",
+                      "guardrails"
+                    ]);
+                    if (list.length === 0) {
+                      return <p className="text-xs text-neutral-500 italic pl-1">Drafting in progress with AI Product Manager...</p>;
+                    }
+                    return (
+                      <ul className="list-disc pl-4 text-sm text-neutral-300 leading-relaxed space-y-1">
+                        {list.map((edge, idx) => (
                           <li key={idx} className="text-neutral-400 font-medium">
                             {renderListItem(edge)}
                           </li>
-                        ));
-                      })()}
-                    </ul>
-                  </div>
-                )}
-
-
+                        ))}
+                      </ul>
+                    );
+                  })()}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-neutral-500 gap-2">
